@@ -1,18 +1,21 @@
-import java.util.*;
+import java.util.Comparator;
+import java.util.Scanner;
+import java.util.Vector;
 
 public class Main {
     //Tamanho máximo da árvore Fenwick
-    final static int MAXN = (int) (Math.pow(10, 5) + 10);
+    final static int MAXN = 100010;
     //Vetores para processamento final da árvore de Fenwick
-    static Long sweep[][], atu[][];
+    static Vector<Trinca> sweep = new Vector<>(), atu = new Vector<>(),
+            joinedFunds = new Vector<>();
     //Vetor de riquezas
     static Vector<Long> comp = new Vector<>();
     //Árvore de Fenwick
-    static int[] BITree = new int[MAXN];
+    static long[] BITree = new long[MAXN];
     //Vetores para os índices de "e1" = Beleza, "e2" = Riqueza e "e3" = Doação
-    static Long[] e1 = new Long[MAXN], e2 = new Long[MAXN], e3 = new Long[MAXN];
+    static long[] e1 = new long[MAXN], e2 = new long[MAXN], e3 = new long[MAXN];
     //Fundo máximo arrecadado
-    static Long fundoMax = 0L;
+    static long fundoMax = 0;
 
     public static void main(String[] args) {
         //Atributos
@@ -21,11 +24,6 @@ public class Main {
         int inviteListQuantity = sc.nextInt();
         //Avança para a próxima linha depois do inteiro que representa a quantidade de possíveis convidados
         sc.nextLine();
-
-        //Inicializa as variáveis dos arrays bidimensionais
-        sweep = new Long[inviteListQuantity][3];
-        Long[][] joinedFunds = new Long[inviteListQuantity][3];
-        atu = new Long[inviteListQuantity][3];
 
         //Pega as informações das pessoas
         for (int i = 0; i < inviteListQuantity; i++) {
@@ -39,51 +37,38 @@ public class Main {
         }
 
         //Ordena a coleção dos valores de riquezas
-        Collections.sort(comp);
+        comp.sort(null);
 
-        for (int i = 0; i < inviteListQuantity; i++) {
+        for (long i = 0; i < inviteListQuantity; i++) {
             //Substitui o índice de riqueza pelo índice em ordem de prioridade da lista de riquezas
-            e2[i] = (long) comp.indexOf(e2[i]) + 1;
+            e2[(int) i] = lower_bound(comp, e2[(int) i]) + 1;
             //Adiciona à Matrix sweep, que contém os dados pré-processados
-            sweep[i][0] = e1[i];
-            sweep[i][1] = e2[i];
-            sweep[i][2] = e3[i];
+            sweep.add(new Trinca(e1[(int) i], e2[(int) i], e3[(int) i]));
         }
 
         //Ordena a matrix sweep.
-        sortByColumn(sweep, 2); //Primeiro na 3ª coluna
-        sortByColumn(sweep, 1); //Depois pela 2ª coluna
-        sortByColumn(sweep, 0); //E por fim, na 1ª coluna
-
-        //Variável que auxilia caso algum número seja mesclado seja encontrado, deve iniciar em 1
-        int aux = 1;
+        sweep.sort(null);
 
         //Mescla os fundos em uma única linha caso haja alguém com beleza e riqueza iguais seja encontrado
         for (int i = 0; i < inviteListQuantity; i++) {
             //Caso o agoraVai não esteja vazio e a pessoa possui riqueza e belezas iguais, somam-se os fundos
-            if (i > 0 &&
-                    joinedFunds[i - aux][0].equals(sweep[i][0]) &&
-                    joinedFunds[i - aux][1].equals(sweep[i][1])) {
-                joinedFunds[i - aux][2] += sweep[i][2];
-                aux++;
+            if (!joinedFunds.isEmpty() &&
+                    joinedFunds.lastElement().getFirstElement() == sweep.get(i).getFirstElement() &&
+                    joinedFunds.lastElement().getSecondElement() == sweep.get(i).getSecondElement()) {
+                joinedFunds.lastElement().thirdElement += sweep.get(i).thirdElement;
             } else {
                 //Senão, adiciona normalmente do sweep para a matriz
-                joinedFunds[i - (aux - 1)][0] = sweep[i][0];
-                joinedFunds[i - (aux - 1)][1] = sweep[i][1];
-                joinedFunds[i - (aux - 1)][2] = sweep[i][2];
+                joinedFunds.add(sweep.get(i));
             }
         }
 
         /*
          * Adiciona os campos nulos que estão em falta, usa como base a matriz completa, e sobrescreve com a matriz
-         * de fundos unidos
+         * de fundos unidos caso seja diferente do index iterado
          * */
-        for (int i = 0; i < inviteListQuantity; i++) {
-            if (joinedFunds[i][0] != null) sweep[i] = joinedFunds[i];
+        while (joinedFunds.size() < sweep.size()) {
+            joinedFunds.add(sweep.get(joinedFunds.size()));
         }
-
-        //Variável que auxilia o preenchimento da matriz Atu, que faz comparações para a árvore de Fenwick
-        int auxAtu = 0;
 
         //Realiza a última operação
         for (int i = 0; i < inviteListQuantity; i++) {
@@ -92,37 +77,29 @@ public class Main {
              * Define a variável y como o índice de riqueza
              * Define a variável val como o valor a ser doado
              * */
-            Long x = sweep[i][0],
-                    y = sweep[i][1],
-                    val = sweep[i][2];
+            long x = sweep.get(i).getFirstElement(), y = sweep.get(i).getSecondElement(), val = sweep.get(i).getThirdElement();
 
             /*
-            * Caso haja algum valor na matriz final, chamada de atu, e o índice de beleza seja menor que o do próximo
-            * convidado, executa a atualização da árvore
-            * */
-            while (auxAtu != 0 && (atu[auxAtu - 1][0] < x)) {
+             * Caso haja algum valor na matriz final, chamada de atu, e o índice de beleza seja menor que o do próximo
+             * convidado, executa a atualização da árvore
+             * */
+            while (!atu.isEmpty() && (atu.lastElement().getFirstElement() < x)) {
                 //Atualiza a árvore
-                update(atu[auxAtu - 1][1].intValue(),
-                        atu[auxAtu - 1][2].intValue());
+                update((int) atu.lastElement().getSecondElement(),
+                        atu.lastElement().getThirdElement());
                 //Remove o elemento do atual
-                atu[auxAtu - 1][0] = null;
-                atu[auxAtu - 1][1] = null;
-                atu[auxAtu - 1][2] = null;
-                auxAtu--;
+                atu.removeElementAt(atu.size() - 1);
             }
 
             /*
-            * Pega o valor da árvore e insere na matriz final, com a soma do valor encontrado na árvore, e o
-            * valor atual do convidado
-            * */
-            long valFromTree = sum(y.intValue() - 1) + val;
-            atu[auxAtu][0] = x;
-            atu[auxAtu][1] = y;
-            atu[auxAtu][2] = valFromTree;
-            auxAtu++;
+             * Pega o valor da árvore e insere na matriz final, com a soma do valor encontrado na árvore, e o
+             * valor atual do convidado
+             * */
+            long valFromTree = sum((int) (y - 1)) + val;
+            atu.add(new Trinca(x, y, valFromTree));
 
             //Adiciona ao valor máximo o maior número
-            fundoMax = Math.max(fundoMax, valFromTree);
+            fundoMax = max(fundoMax, valFromTree);
         }
 
         //Exibe por fim, o valor máximo possível do fundo, seguindo os critérios do desafio
@@ -130,26 +107,80 @@ public class Main {
     }
 
     //Atualiza a árvore
-    public static void update(int idx, int delta) {
+    public static void update(int idx, long delta) {
         while (idx < MAXN) {
-            BITree[idx] = Math.max(BITree[idx], delta);
+            BITree[idx] = max(BITree[idx], delta);
             idx += (idx & (-idx));
         }
     }
 
     //Soma as informações desejadas da árvore
     public static long sum(int idx) {
-        long sum = 0;
+        long sum = 0L;
         while (idx > 0) {
-            sum = Math.max(BITree[idx], sum);
+            sum = max(BITree[idx], sum);
             idx -= (idx & (-idx));
         }
         return sum;
     }
 
-    //Função para ordenar por uma coluna do array
-    public static void sortByColumn(Long arr[][], int col) {
-        //Ordena pela segunda e depois pela primeira coluna
-        Arrays.sort(arr, Comparator.comparing(longs -> longs[col]));
+    //Retorna um iterador que aponta para o primeiro elemento do array, [primeiro, último],
+    // o qual tem um valor não menor que o valor fornecido
+    public static long lower_bound(Vector<Long> ar, long k) {
+        long s = 0;
+        long e = ar.size();
+        while (s != e) {
+            long mid = s + e >> 1;
+            if (ar.get((int) mid) < k) {
+                s = mid + 1;
+            } else {
+                e = mid;
+            }
+        }
+        if (s == ar.size()) {
+            return -1;
+        }
+        return s;
+    }
+
+    //Pega o maior valor entre 2 Longs
+    static long max(long a, long b) {
+        return Math.max(a, b);
+    }
+
+    //Classe que implementa a Trinca, matriz 1 X 3.
+    static class Trinca implements Comparable {
+        public long firstElement;
+        public long secondElement;
+        public long thirdElement;
+
+        //Método construtor
+        Trinca(long _firstElement, long _secondElement, long _thirdElement) {
+            firstElement = _firstElement;
+            secondElement = _secondElement;
+            thirdElement = _thirdElement;
+        }
+
+        //Getters
+        long getFirstElement() {
+            return firstElement;
+        }
+
+        long getSecondElement() {
+            return secondElement;
+        }
+
+        long getThirdElement() {
+            return thirdElement;
+        }
+
+        //Comparador oriundo da classe "Comparable"
+        @Override
+        public int compareTo(Object other) {
+            return Comparator.comparing(Trinca::getFirstElement)
+                    .thenComparing(Trinca::getSecondElement)
+                    .thenComparingLong(Trinca::getThirdElement)
+                    .compare(this, (Trinca) other);
+        }
     }
 }
